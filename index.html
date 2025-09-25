@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Квест — нажимай кнопки</title>
+  <style>
+    :root{--bg:#0f172a;--card:#0b1220;--accent:#f97316;--text:#e6eef8}
+    html,body{height:100%;margin:0;font-family:Inter,Segoe UI,Roboto,Arial;background:linear-gradient(180deg,#071024 0%, #081026 60%);color:var(--text)}
+    .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:32px}
+    .card{width:100%;max-width:820px;background:rgba(255,255,255,0.03);padding:28px;border-radius:16px;box-shadow:0 8px 30px rgba(2,6,23,0.6)}
+    h1{margin:0 0 12px;font-size:22px}
+    p.lead{margin:0 0 18px;color:#bcd0ea}
+    .buttons{position:relative;min-height:220px;border-radius:12px;padding:18px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start}
+    button.btn{background:linear-gradient(180deg,#15233b,#0f1a2b);color:var(--text);border:1px solid rgba(255,255,255,0.06);padding:12px 16px;border-radius:10px;font-size:16px;cursor:pointer;user-select:none}
+    button.btn:active{transform:translateY(1px)}
+    .run{position:absolute;transition:transform 0.12s ease;z-index:40}
+    .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:opacity .18s}
+    .overlay.show{opacity:1;pointer-events:auto}
+    .message{background:#fff;border-radius:16px;padding:28px 36px;text-align:center;max-width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.6)}
+    .message h2{margin:0;font-size:34px;color:#d11a2a;letter-spacing:1px}
+    .small{margin-top:8px;color:#334155}
+    @media (max-width:520px){.buttons{min-height:320px}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Квест</h1>
+      <p class="lead">Отсканируй, нажимай кнопки. Последняя кнопка убегает — поймай её!</p>
+
+      <div class="buttons" id="buttons">
+        <!-- обычные кнопки -->
+        <button class="btn" id="b1">Нажми меня 1</button>
+        <button class="btn" id="b2">Нажми меня 2</button>
+        <button class="btn" id="b3">Нажми меня 3</button>
+
+        <!-- убегающая кнопка -->
+        <button class="btn run" id="runBtn" style="left:calc(100% - 120px);top:10px;">Поймай меня</button>
+      </div>
+
+      <p class="small">Подсказка: на телефоне кнопка убегает при попытке коснуться.</p>
+    </div>
+  </div>
+
+  <div class="overlay" id="overlay">
+    <div class="message" id="messageBox">
+      <h2 id="finalText">ИДИ В ЗАДНИЦУ</h2>
+      <p class="small">Квест завершён.</p>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const runBtn = document.getElementById('runBtn');
+      const container = document.getElementById('buttons');
+      const overlay = document.getElementById('overlay');
+      const finalText = document.getElementById('finalText');
+
+      // Настройки
+      const PADDING = 12; // отступ внутри контейнера
+      const MOVE_DISTANCE = 120; // минимальный сдвиг при убегании
+
+      // Утилита: поставить кнопку на случайную позицию внутри контейнера
+      function placeRandom(el){
+        const rect = container.getBoundingClientRect();
+        const elRect = el.getBoundingClientRect();
+        const maxLeft = Math.max(rect.width - elRect.width - PADDING, PADDING);
+        const maxTop = Math.max(rect.height - elRect.height - PADDING, PADDING);
+        const left = Math.floor(Math.random() * (maxLeft - PADDING + 1)) + PADDING;
+        const top = Math.floor(Math.random() * (maxTop - PADDING + 1)) + PADDING;
+        el.style.transform = `translate(${left}px, ${top}px)`;
+      }
+
+      // Начальная позиция
+      placeRandom(runBtn);
+
+      // Логика: при наведении / приближении мыши убегаем
+      let lastMove = 0;
+      function tryRun(){
+        const now = Date.now();
+        if(now - lastMove < 120) return; // throttle
+        lastMove = now;
+        placeRandom(runBtn);
+      }
+
+      // Для мыши
+      runBtn.addEventListener('mouseover', tryRun);
+      runBtn.addEventListener('mousemove', tryRun);
+
+      // Для тача/попытки нажать на телефоне
+      runBtn.addEventListener('touchstart', function(e){
+        e.preventDefault(); // отменим срабатывание click чтобы сначала убежать
+        tryRun();
+      }, {passive:false});
+
+      // В случае если всё-таки нажали
+      runBtn.addEventListener('click', function(e){
+        e.stopPropagation();
+        showFinal();
+      });
+
+      // Нормальные кнопки — просто небольшая реакция
+      ['b1','b2','b3'].forEach(id=>{
+        const el = document.getElementById(id);
+        el.addEventListener('click', ()=>{
+          el.textContent = 'Ок!';
+          el.disabled = true;
+          el.style.opacity = 0.8;
+        });
+      });
+
+      // Показ финального оверлея
+      function showFinal(){
+        // Можно менять текст здесь
+        finalText.textContent = 'ИДИ В ЗАДНИЦУ';
+        overlay.classList.add('show');
+      }
+
+      // Закрытие по тапу на фоне
+      overlay.addEventListener('click', function(e){
+        if(e.target === overlay) overlay.classList.remove('show');
+      });
+
+      // Чтобы кнопка не вылазила при ресайзе
+      window.addEventListener('resize', ()=>placeRandom(runBtn));
+
+      // Доступность: если пользователь не смог поймать кнопку — добавим подсказку через 10 сек
+      let hintTimer = setTimeout(()=>{
+        const hint = document.createElement('div');
+        hint.textContent = 'Подсказка: попробуй быстро нажать в верхний левый угол — кнопка может там появиться.';
+        hint.style.marginTop = '12px';
+        hint.style.color = '#cbd5e1';
+        document.querySelector('.card').appendChild(hint);
+      }, 10000);
+
+    })();
+  </script>
+</body>
+</html>
